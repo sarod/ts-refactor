@@ -1,7 +1,7 @@
 {
   "name": "ts-refactor",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/main.js",
   "author": "sebastien.arod@gmail.com",
   "license": "MIT",
   "dependencies": {
