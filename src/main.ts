@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 import * as minimist from "minimist";
+import * as mkdirp from "mkdirp";
 
 import {processSourceFile} from "./refactor";
 
@@ -31,10 +32,11 @@ fileNames.forEach(fileName => {
 
 
   let targetFile: string = computeTargetFileName(absoluteFileName);
+  mkdirp.sync(path.dirname(targetFile));
   writeFileSync(targetFile, newCode);
 });
 
 function computeTargetFileName(originalFileName: string) {
-  let relativePath = path.relative(originalFileName, process.cwd());
+  let relativePath = path.relative(process.cwd(), originalFileName);
   return path.resolve(targetDir, relativePath);
 }

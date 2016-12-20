@@ -1,2 +1,5 @@
 node_modules/
 refactored/
+*.js
+*.js.map
+dist/

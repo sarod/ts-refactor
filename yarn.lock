@@ -6,6 +6,10 @@
   version "1.1.29"
   resolved "https://registry.yarnpkg.com/@types/minimist/-/minimist-1.1.29.tgz#91cd01c4f28c18c8a4e621aad803a3608d81cfea"
 
+"@types/mkdirp@^0.3.29":
+  version "0.3.29"
+  resolved "https://registry.yarnpkg.com/@types/mkdirp/-/mkdirp-0.3.29.tgz#7f2ad7ec55f914482fc9b1ec4bb1ae6028d46066"
+
 "@types/node@^6.0.52":
   version "6.0.52"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-6.0.52.tgz#1ac3a99b42320f9e463482f25af4c2359473aaa6"
@@ -29,9 +33,19 @@ core-js@^2.4.0:
   version "2.4.1"
   resolved "https://registry.yarnpkg.com/core-js/-/core-js-2.4.1.tgz#4de911e667b0eae9124e34254b53aea6fc618d3e"
 
+minimist@0.0.8:
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/minimist/-/minimist-0.0.8.tgz#857fcabfc3397d2625b8228262e86aa7a011b05d"
+
 minimist@^1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.0.tgz#a35008b20f41383eec1fb914f4cd5df79a264284"
+
+mkdirp@^0.5.1:
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/mkdirp/-/mkdirp-0.5.1.tgz#30057438eac6cf7f8c4767f38648d6697d75c903"
+  dependencies:
+    minimist "0.0.8"
 
 regenerator-runtime@^0.10.0:
   version "0.10.1"
