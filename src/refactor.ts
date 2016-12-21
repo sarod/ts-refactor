@@ -3,77 +3,107 @@ import { CodeReplacement, replaceCode } from "./code-replace";
 import { resolve, relative, dirname } from "path";
 
 
-export function processSourceFile(baseUrlPath: string, sourceFilePath: string, sourceFile: ts.SourceFile) {
+export function computeRefactors(baseUrlPath: string, sourceFilePath: string, sourceFile: ts.SourceFile): CodeReplacement[] {
+
+  let varNames = [];
   let codeReplacements: CodeReplacement[] = [];
 
   processNode(sourceFile);
 
-  return replaceCode(sourceFile.getFullText(), codeReplacements);    
- 
+  return codeReplacements;
+
 
   function processNode(node: ts.Node) {
     switch (node.kind) {
       case ts.SyntaxKind.CallExpression:
-        handleCallExpression(<ts.CallExpression>node);
+        processCallExpression(<ts.CallExpression>node);
         break;
     }
     ts.forEachChild(node, processNode);
   }
 
-  function handleCallExpression(callExpression: ts.CallExpression) {
+  function processCallExpression(callExpression: ts.CallExpression) {
     let expression: ts.LeftHandSideExpression = callExpression.expression;
-    if (!isAngularComponentExpression(expression)) {
-      console.log('skipping expression: ' + describeNode(callExpression) + ' componentOptions is not an object literal');
-      return;
-    } else {
-      let componentNameArg = callExpression.arguments[0];
-      let componentName;
-      if (componentNameArg.kind !== ts.SyntaxKind.StringLiteral) {
-        console.log('skipping expression: ' + describeNode(callExpression) + ': componentName is not a string literal');
-        return;
-      }
-      componentName = extractStringFromLiteral(<ts.StringLiteral>componentNameArg);
+
+    if (isAngularComponentExpression(expression)) {
       let componentOptionsArg = callExpression.arguments[1];
       if (componentOptionsArg.kind !== ts.SyntaxKind.ObjectLiteralExpression) {
         console.log('skipping expression: ' + describeNode(callExpression) + ': componentOptions is not an ObjectLiteralExpression');
         return;
       }
-      let componentOptionsObject: ts.ObjectLiteralExpression = <ts.ObjectLiteralExpression>componentOptionsArg;
-
-      let templateProperty: ts.ObjectLiteralElement = componentOptionsObject
-        .properties
-        .find((element: ts.ObjectLiteralElement) => element.name.getText() === 'template');
-      if (templateProperty) {
-        console.log('skipping expression: ' + describeNode(callExpression) + ' templateProperty already defined ');
+      refactorCallExpressionWithComponentOptions(
+        callExpression,
+        <ts.ObjectLiteralExpression>componentOptionsArg,
+        "componentTemplate");
+    } else if (isAngularMaterialDialogShowExpression(expression)) {
+      let componentOptionsArg = callExpression.arguments[0];
+      if (componentOptionsArg.kind !== ts.SyntaxKind.ObjectLiteralExpression) {
+        console.log('skipping expression: ' + describeNode(callExpression) + ': componentOptions is not an ObjectLiteralExpression');
         return;
       }
-
-      let templateUrlProperty: ts.ObjectLiteralElement = componentOptionsObject
-        .properties
-        .find((element: ts.ObjectLiteralElement) => element.name.getText() === 'templateUrl');
-      if (!templateUrlProperty) {
-        console.log('skipping expression: ' + describeNode(callExpression) + ' templateUrlProperty absent');
-        return;
-      }
-
-      if (templateUrlProperty.kind !== ts.SyntaxKind.PropertyAssignment) {
-        console.log('skipping expression: ' + describeNode(callExpression) + ' templateUrlProperty is not a PropertyAssignment');
-        return;
-      }
-
-      let urlInitializerExpression: ts.Expression = (<ts.PropertyAssignment>templateUrlProperty).initializer;
-      if (urlInitializerExpression.kind !== ts.SyntaxKind.StringLiteral) {
-        console.log('skipping expression: ' + describeNode(callExpression) + ' urlInitializerExpression is not a StringLiteral');
-        return;
-      }
-
-      let templateUrl = extractStringFromLiteral(<ts.StringLiteral>urlInitializerExpression);
-      let importPath = templateUrlToImportPath(templateUrl);
-
-      codeReplacements.push(CodeReplacement.insertTop('import * as template from \'' + importPath + '\';\n'));
-      codeReplacements.push(CodeReplacement.createReplaceNodeText(templateUrlProperty, 'template: template'));
-
+      refactorCallExpressionWithComponentOptions(
+        callExpression,
+        <ts.ObjectLiteralExpression>componentOptionsArg,
+        "dialogTemplate");
     }
+  }
+
+  function refactorCallExpressionWithComponentOptions(
+    callExpression: ts.CallExpression,
+    componentOptionsArg: ts.ObjectLiteralExpression,
+    baseVarName: string) {
+    let componentOptionsObject: ts.ObjectLiteralExpression = <ts.ObjectLiteralExpression>componentOptionsArg;
+
+    let templateProperty: ts.ObjectLiteralElement = componentOptionsObject
+      .properties
+      .find((element: ts.ObjectLiteralElement) => element.name.getText() === 'template');
+    if (templateProperty) {
+      return;
+    }
+
+    let templateUrlProperty: ts.ObjectLiteralElement = componentOptionsObject
+      .properties
+      .find((element: ts.ObjectLiteralElement) => element.name.getText() === 'templateUrl');
+    if (!templateUrlProperty) {
+      console.log('skipping expression: ' + describeNode(callExpression) + ' templateUrlProperty absent');
+      return;
+    }
+
+    if (templateUrlProperty.kind !== ts.SyntaxKind.PropertyAssignment) {
+      console.log('skipping expression: ' + describeNode(callExpression) + ' templateUrlProperty is not a PropertyAssignment');
+      return;
+    }
+
+    let urlInitializerExpression: ts.Expression = (<ts.PropertyAssignment>templateUrlProperty).initializer;
+    if (urlInitializerExpression.kind !== ts.SyntaxKind.StringLiteral) {
+      console.log('skipping expression: ' + describeNode(callExpression) + ' urlInitializerExpression is not a StringLiteral');
+      return;
+    }
+
+    let templateUrl = extractStringFromLiteral(<ts.StringLiteral>urlInitializerExpression);
+    let importPath = templateUrlToImportPath(templateUrl);
+
+
+    let templateVarName = findUnusedName(baseVarName);
+    codeReplacements.push(CodeReplacement.insertTop('import * as ' + templateVarName + ' from \'' + importPath + '\';\n'));
+    codeReplacements.push(CodeReplacement.createReplaceNodeText(templateUrlProperty, 'template: ' + templateVarName));
+  }
+
+  function findUnusedName(templateVarName) {
+    let i;
+    for (i = 1; i < 500; i++) {
+      let candidate;
+      if (i === 1) {
+        candidate = templateVarName;
+      } else {
+        candidate = templateVarName + i;
+      }
+      if (!varNames.includes(candidate)) {
+        varNames.push(candidate);
+        return candidate;
+      }
+    }
+
   }
 
   function extractStringFromLiteral(expr: ts.StringLiteral) {
@@ -94,6 +124,14 @@ export function processSourceFile(baseUrlPath: string, sourceFilePath: string, s
     if (expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
       let propertyAccessExpression: ts.PropertyAccessExpression = <ts.PropertyAccessExpression>expression;
       return propertyAccessExpression.name.getText() === 'component';
+    }
+    return false;
+  }
+
+  function isAngularMaterialDialogShowExpression(expression: ts.LeftHandSideExpression) {
+    if (expression.kind == ts.SyntaxKind.PropertyAccessExpression) {
+      let propertyAccessExpression: ts.PropertyAccessExpression = <ts.PropertyAccessExpression>expression;
+      return propertyAccessExpression.name.getText() === 'show';
     }
     return false;
   }
